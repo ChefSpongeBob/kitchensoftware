@@ -2,22 +2,13 @@ import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ platform }) => {
   const db = platform?.env.DB;
-  if (!db) return { recipes: [], categories: [] };
+  if (!db) return { recipes: [] };
 
-  const { results: recipes } = await db.prepare(
-    `SELECT id, title, category, ingredients, instructions, created_at
-     FROM recipes
-     ORDER BY created_at DESC`
-  ).all();
+  const { results } = await db
+    .prepare(`SELECT * FROM recipes ORDER BY created_at DESC`)
+    .all();
 
-  const { results: categories } = await db.prepare(
-    `SELECT DISTINCT category FROM recipes`
-  ).all();
-
-  return {
-    recipes: recipes ?? [],
-    categories: categories?.map(c => c.category) ?? []
-  };
+  return { recipes: results ?? [] };
 };
 
 export const actions: Actions = {
@@ -31,10 +22,10 @@ export const actions: Actions = {
       INSERT INTO recipes (title, category, ingredients, instructions, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
     `).bind(
-      f.get('title') ?? '',
-      f.get('category') ?? '',
-      f.get('ingredients') ?? '',
-      f.get('instructions') ?? ''
+      String(f.get('title') ?? ''),
+      String(f.get('category') ?? ''),
+      String(f.get('ingredients') ?? ''),
+      String(f.get('instructions') ?? '')
     ).run();
 
     return { success: true };
@@ -48,14 +39,13 @@ export const actions: Actions = {
 
     await db.prepare(`
       UPDATE recipes
-      SET title=?, ingredients=?, instructions=?, category=?
+      SET title=?, ingredients=?, instructions=?
       WHERE id=?
     `).bind(
-      f.get('title') ?? '',
-      f.get('ingredients') ?? '',
-      f.get('instructions') ?? '',
-      f.get('category') ?? '',
-      f.get('id')
+      String(f.get('title') ?? ''),
+      String(f.get('ingredients') ?? ''),
+      String(f.get('instructions') ?? ''),
+      Number(f.get('id'))
     ).run();
 
     return { success: true };
@@ -67,8 +57,9 @@ export const actions: Actions = {
 
     const f = await request.formData();
 
-    await db.prepare(`DELETE FROM recipes WHERE id=?`)
-      .bind(f.get('id'))
+    await db
+      .prepare(`DELETE FROM recipes WHERE id=?`)
+      .bind(Number(f.get('id')))
       .run();
 
     return { success: true };
